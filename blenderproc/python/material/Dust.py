@@ -47,10 +47,10 @@ def add_dust(material: Material, strength: float, texture_nodes: List[bpy.types.
     links.new(geometry_node.outputs["Normal"], clip_mix_node.inputs["Color2"])
 
     # use only the z component
-    separate_z_normal = nodes.new("ShaderNodeSeparateRGB")
+    separate_z_normal = nodes.new("ShaderNodeSeparateColor")
     separate_z_normal.location.x = x_pos + x_diff * 2
     separate_z_normal.location.y = y_pos
-    links.new(clip_mix_node.outputs["Color"], separate_z_normal.inputs["Image"])
+    links.new(clip_mix_node.outputs["Color"], separate_z_normal.inputs["Color"])
 
     # this layer weight adds a small fresnel around the object, which makes it more realistic
     layer_weight = nodes.new("ShaderNodeLayerWeight")
@@ -62,7 +62,7 @@ def add_dust(material: Material, strength: float, texture_nodes: List[bpy.types.
     mix_with_layer_weight.location.x = x_pos + x_diff * 3
     mix_with_layer_weight.location.y = y_pos
     mix_with_layer_weight.inputs["Fac"].default_value = 0.2
-    links.new(separate_z_normal.outputs["B"], mix_with_layer_weight.inputs["Color1"])
+    links.new(separate_z_normal.outputs["Blue"], mix_with_layer_weight.inputs["Color1"])
     links.new(layer_weight.outputs["Facing"], mix_with_layer_weight.inputs["Color2"])
     # add a gamma node, to scale the colors correctly
     gamma_node = nodes.new("ShaderNodeGamma")
@@ -120,10 +120,10 @@ def add_dust(material: Material, strength: float, texture_nodes: List[bpy.types.
         noise_node.inputs["Distortion"].default_value = 1.9
         links.new(mapping_node.outputs["Vector"], noise_node.inputs["Vector"])
         # this noise_node produces RGB colors, we only need one value in this instance red
-        separate_r_channel = nodes.new("ShaderNodeSeparateRGB")
+        separate_r_channel = nodes.new("ShaderNodeSeparateColor")
         separate_r_channel.location.x = x_pos + x_diff * 3
         separate_r_channel.location.y = y_pos - y_diff * 2
-        links.new(noise_node.outputs["Color"], separate_r_channel.inputs["Image"])
+        links.new(noise_node.outputs["Color"], separate_r_channel.inputs["Color"])
         # as the produced noise image has a nice fading to it, we use a color ramp to create dust flakes
         color_ramp = nodes.new("ShaderNodeValToRGB")
         color_ramp.location.x = x_pos + x_diff * 4
@@ -132,7 +132,7 @@ def add_dust(material: Material, strength: float, texture_nodes: List[bpy.types.
         color_ramp.color_ramp.elements[0].color = [1, 1, 1, 1]
         color_ramp.color_ramp.elements[1].position = 0.46
         color_ramp.color_ramp.elements[1].color = [0, 0, 0, 1]
-        links.new(separate_r_channel.outputs["R"], color_ramp.inputs["Fac"])
+        links.new(separate_r_channel.outputs["Red"], color_ramp.inputs["Fac"])
         links.new(color_ramp.outputs["Color"], overlay.inputs["Color2"])
 
     # combine the previous color with the new dust mode

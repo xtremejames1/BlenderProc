@@ -267,13 +267,12 @@ def _colorize_object(obj: bpy.types.Object, color: mathutils.Vector, use_alpha_c
     """
     # Create new material emitting the given color
     new_mat = bpy.data.materials.new(name="segmentation")
-    new_mat.use_nodes = True
     # sampling as light,conserves memory, by not keeping a reference to it for multiple importance sampling.
     # This shouldn't change the results because with an emission of 1 the colorized objects aren't emitting light.
     # Also, BlenderProc's segmap render settings are configured so that there is only a single sample to distribute,
     # multiple importance shouldn't affect the noise of the render anyway.
     # This fixes issue #530
-    new_mat.cycles.sample_as_light = False
+    new_mat.cycles.emission_sampling = "NONE"
     nodes = new_mat.node_tree.nodes
     links = new_mat.node_tree.links
     emission_node = nodes.new(type='ShaderNodeEmission')

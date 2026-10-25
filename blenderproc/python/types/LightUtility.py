@@ -111,7 +111,6 @@ class Light(Entity):
         self.blender_obj.constraints['Copy Transforms'].target = cam_ob
 
         # Setup nodes for projecting image
-        self.blender_obj.data.use_nodes = True
         self.blender_obj.data.shadow_soft_size = 0
         self.blender_obj.data.spot_size = 3.14159  # 180deg in rad
         self.blender_obj.data.use_shadow = False

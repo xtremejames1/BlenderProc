@@ -4,6 +4,7 @@ import re
 from typing import List, Union, Optional
 
 import bpy
+from bpy_extras.anim_utils import animdata_get_channelbag_for_assigned_slot
 
 from blenderproc.python.utility.BlenderUtility import collect_all_orphan_data_blocks
 from blenderproc.python.types.EntityUtility import Entity, convert_to_entity_subclass
@@ -78,8 +79,10 @@ def load_blend(path: str, obj_types: Optional[Union[List[str], str]] = None, nam
 
                         # Find the maximum frame number of its key frames
                         max_keyframe = -1
-                        if obj.animation_data is not None:
-                            fcurves = obj.animation_data.action.fcurves
+                        if obj.animation_data is not None and obj.animation_data.action is not None:
+                            # Since Blender 4.4 fcurves are stored in channelbags of the assigned action slot
+                            channelbag = animdata_get_channelbag_for_assigned_slot(obj.animation_data)
+                            fcurves = channelbag.fcurves if channelbag is not None else []
                             for curve in fcurves:
                                 keyframe_points = curve.keyframe_points
                                 for keyframe in keyframe_points:
@@ -112,10 +115,11 @@ def load_blend(path: str, obj_types: Optional[Union[List[str], str]] = None, nam
 
 
 class _BlendLoader:
-    valid_data_blocks = [collection.lower() for collection in dir(bpy.data) if
+    valid_data_blocks = [collection.lower() for collection in dir(bpy.data) if collection != "all_ids" and
                         isinstance(getattr(bpy.data, collection), bpy.types.bpy_prop_collection)]
     valid_object_types = ['mesh', 'curve', 'curves', 'surface', 'meta', 'font', 'hair', 'pointcloud', 'volume',
-                          'gpencil', 'armature', 'lattice', 'empty', 'light', 'light_probe', 'camera', 'speaker']
+                          'gpencil', 'greasepencil', 'armature', 'lattice', 'empty', 'light', 'light_probe', 'camera',
+                          'speaker']
 
     @staticmethod
     def validate_and_standardizes_configured_list(config_value: Union[list, str], allowed_elements: list,

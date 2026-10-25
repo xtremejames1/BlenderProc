@@ -18,7 +18,7 @@ class Material(Struct):
 
     def __init__(self, material: bpy.types.Material):
         super().__init__(material)
-        if not material.use_nodes:
+        if material.node_tree is None:
             raise RuntimeError(f"The given material {material.name} does not have nodes enabled and can "
                                f"therefore not be handled by BlenderProc's Material wrapper class.")
 

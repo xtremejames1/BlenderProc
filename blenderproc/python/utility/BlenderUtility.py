@@ -206,6 +206,9 @@ def collect_all_orphan_data_blocks() -> Dict[str, Any]:
     orphans = defaultdict(set)
     # Go over all datablock types
     for collection_name in dir(bpy.data):
+        # all_ids is a read-only view containing the data blocks of all other collections
+        if collection_name == "all_ids":
+            continue
         collection = getattr(bpy.data, collection_name)
         if isinstance(collection, bpy.types.bpy_prop_collection):
             # Go over all datablocks of that type

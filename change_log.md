@@ -7,6 +7,16 @@
 
 # Version History
 
+## Unreleased
+
+- upgrades to blender 5.2.3 LTS, which bundles python 3.13
+  - the compositor setup now uses `scene.compositing_node_group` (see `Utility.get_compositor_node_tree()`), as `scene.node_tree` was removed in blender 5.0
+  - file output nodes use the new blender 5 API and write full float `.exr` files and 8-bit `.png` files, so output file names stay the same
+  - replaces removed nodes and sockets (e.g. `SeparateRGB`, `CombineRGB`, compositor `Math` / `MapRange` nodes and renamed render passes)
+  - loading `.dae` (Collada) files is not supported anymore, as blender 5.0 removed the Collada importer
+  - `bproc.renderer.enable_experimental_features()` has no effect anymore, as cycles has no experimental feature set in blender 5
+- updates default pip package-versions to versions supporting python 3.13
+
 ## Version 2.8.0 22th October 2024
 
 - upgrades to blender 4.2.1 (#1136, thanks a lot to @Griperis who did the main work in this PR)

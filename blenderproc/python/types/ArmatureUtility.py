@@ -36,7 +36,7 @@ class Armature(Entity):
         assert mode in ["absolute", "relative"]
         bpy.ops.object.select_all(action='DESELECT')
         bone = self.blender_obj.pose.bones.get('Bone')
-        bone.bone.select = True
+        bone.select = True
         bone.rotation_mode = 'XYZ'
 
         # in absolute mode we overwrite the rotation values of the armature

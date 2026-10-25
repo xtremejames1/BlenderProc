@@ -109,37 +109,31 @@ class _FlowRendererUtility():
         """
 
         # Flow settings (is called "vector" in blender)
-        bpy.context.scene.render.use_compositing = True
-        bpy.context.scene.use_nodes = True
         bpy.context.view_layer.use_pass_vector = True
 
         # Adapt compositor to output vector field
-        tree = bpy.context.scene.node_tree
+        tree = Utility.get_compositor_node_tree()
         links = tree.links
 
         # Use existing render layer
         render_layer_node = tree.nodes.get('Render Layers')
 
-        separate_rgba = tree.nodes.new('CompositorNodeSepRGBA')
+        separate_rgba = tree.nodes.new('CompositorNodeSeparateColor')
         links.new(render_layer_node.outputs['Vector'], separate_rgba.inputs['Image'])
 
         if forward_flow:
-            combine_fwd_flow = tree.nodes.new('CompositorNodeCombRGBA')
-            links.new(separate_rgba.outputs['B'], combine_fwd_flow.inputs['R'])
-            links.new(separate_rgba.outputs['A'], combine_fwd_flow.inputs['G'])
-            fwd_flow_output_file = tree.nodes.new('CompositorNodeOutputFile')
-            fwd_flow_output_file.base_path = output_dir
-            fwd_flow_output_file.format.file_format = "OPEN_EXR"
-            fwd_flow_output_file.file_slots.values()[0].path = "fwd_flow_"
-            links.new(combine_fwd_flow.outputs['Image'], fwd_flow_output_file.inputs['Image'])
+            combine_fwd_flow = tree.nodes.new('CompositorNodeCombineColor')
+            links.new(separate_rgba.outputs['Blue'], combine_fwd_flow.inputs['Red'])
+            links.new(separate_rgba.outputs['Alpha'], combine_fwd_flow.inputs['Green'])
+            _, fwd_flow_output_file_input = Utility.add_compositor_file_output_node(tree, output_dir,
+                                                                                    "fwd_flow_", "OPEN_EXR")
+            links.new(combine_fwd_flow.outputs['Image'], fwd_flow_output_file_input)
 
         if backward_flow:
             # actually need to split - otherwise the A channel of the image is getting weird, no idea why
-            combine_bwd_flow = tree.nodes.new('CompositorNodeCombRGBA')
-            links.new(separate_rgba.outputs['R'], combine_bwd_flow.inputs['R'])
-            links.new(separate_rgba.outputs['G'], combine_bwd_flow.inputs['G'])
-            bwd_flow_output_file = tree.nodes.new('CompositorNodeOutputFile')
-            bwd_flow_output_file.base_path = output_dir
-            bwd_flow_output_file.format.file_format = "OPEN_EXR"
-            bwd_flow_output_file.file_slots.values()[0].path = "bwd_flow_"
-            links.new(combine_bwd_flow.outputs['Image'], bwd_flow_output_file.inputs['Image'])
+            combine_bwd_flow = tree.nodes.new('CompositorNodeCombineColor')
+            links.new(separate_rgba.outputs['Red'], combine_bwd_flow.inputs['Red'])
+            links.new(separate_rgba.outputs['Green'], combine_bwd_flow.inputs['Green'])
+            _, bwd_flow_output_file_input = Utility.add_compositor_file_output_node(tree, output_dir,
+                                                                                    "bwd_flow_", "OPEN_EXR")
+            links.new(combine_bwd_flow.outputs['Image'], bwd_flow_output_file_input)
