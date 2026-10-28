@@ -16,6 +16,9 @@ class TestsPathManager:
 
         # for the default resource folder, this one should always be available
         self.example_resources = abspath(join(self._main_folder, "examples/resources"))
+        if not exists(self.example_resources):
+            # BlenderProc is installed as package (e.g. in a venv) and the tests are run from the repository
+            self.example_resources = abspath("examples/resources")
 
         # for cc materials
         self._add_parameter("cc_materials", "resources/cctextures", "BP_CC_MATERIALS_PATH")

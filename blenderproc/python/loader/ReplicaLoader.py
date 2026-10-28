@@ -107,10 +107,10 @@ def load_replica_segmented_mesh(data_path: Union[str, Path], data_set_name: str,
         mesh.update()
 
         # check if the mesh already has some vertex colors
-        if not mesh.vertex_colors:
-            mesh.vertex_colors.new()
+        if "Col" not in mesh.color_attributes:
+            mesh.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
         # get the newly created vertex colors
-        color_layer = mesh.vertex_colors["Col"]
+        color_layer = mesh.color_attributes["Col"]
         color_layer.data.foreach_set("color", colors[current_face_indices].reshape(-1))
         # one final update to integrate the vertex colors
         mesh.update()

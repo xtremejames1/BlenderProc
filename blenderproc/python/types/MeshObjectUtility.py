@@ -551,7 +551,8 @@ class MeshObject(Entity):
         # Known issue: https://projects.blender.org/blender/blender/issues/117399
 
         # The datafiles are expected to be in the same folder relative to blender's python binary.
-        path = Path(bpy.utils.resource_path('LOCAL')) / "datafiles" / "assets" / "geometry_nodes" / "smooth_by_angle.blend"
+        path = Path(bpy.utils.resource_path('LOCAL')) / "datafiles" / "assets" / "nodes" / \
+            "geometry_nodes_essentials.blend"
         if not path.exists():
             raise RuntimeError(f"Could not find the path to the 'ESSENTIALS' asset folder expected at {path}")
         
@@ -568,7 +569,7 @@ class MeshObject(Entity):
         modifier = None
         for existing_mod in self.get_modifiers():
             if existing_mod.type == 'NODES' and existing_mod.node_group == existing_node_group:
-                modifier = modifier
+                modifier = existing_mod
                 break
         
         # Create a new modifier if no existing modifier was found
@@ -577,7 +578,8 @@ class MeshObject(Entity):
             modifier.node_group = existing_node_group
 
         modifier = self.get_modifier("Smooth by Angle")
-        modifier["Input_1"] = np.deg2rad(float(angle))
+        # Input_1 is the "Angle" input of the "Smooth by Angle" node group
+        modifier.properties.inputs.Input_1.value = np.deg2rad(float(angle))
         return modifier
 
     def mesh_as_trimesh(self) -> Trimesh:

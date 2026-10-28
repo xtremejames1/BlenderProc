@@ -131,7 +131,7 @@ class _SuncgLoader:
         """
         # TODO: should only be done to suncg materials
         for material in bpy.data.materials:
-            if material.use_nodes:
+            if material.node_tree is not None:
                 nodes = material.node_tree.nodes
                 textures = Utility.get_nodes_with_type(nodes, "ShaderNodeTexImage")
                 if len(textures) == 1:

@@ -110,7 +110,6 @@ def clean_up(clean_up_camera: bool = False):
     new_world = bpy.data.worlds.new("World")
     bpy.context.scene.world = new_world
     new_world["category_id"] = 0
-    new_world.use_nodes = True
 
     if clean_up_camera:
         # Create the camera
@@ -189,6 +188,9 @@ class _Initializer:
                 for block in data_structure:
                     # Skip the default scene
                     if isinstance(block, bpy.types.Scene) and block.name == "Scene":
+                        continue
+                    # Skip the compositor setup of the scene, so render outputs stay configured
+                    if block == bpy.context.scene.compositing_node_group:
                         continue
                     # If desired, skip camera
                     if not remove_camera and isinstance(block, (bpy.types.Object, bpy.types.Camera)) \

@@ -30,7 +30,6 @@ def create(name: str) -> Material:
     :return: The new material.
     """
     new_mat = bpy.data.materials.new(name=name)
-    new_mat.use_nodes = True
     return Material(new_mat)
 
 
@@ -89,7 +88,6 @@ def create_new_cc_material(material_name: str, add_custom_properties: dict) -> b
     new_mat = bpy.data.materials.new(material_name)
     new_mat["is_cc_texture"] = True
     new_mat["asset_name"] = material_name
-    new_mat.use_nodes = True
     for key, value in add_custom_properties.items():
         if key.startswith("cp_"):
             cp_key = key[len("cp_"):]
@@ -271,26 +269,26 @@ def add_normal(nodes: bpy.types.Nodes, links: bpy.types.NodeLinks, normal_image_
                                            normal_y_value)
         if invert_y_channel:
 
-            separate_rgba = nodes.new('ShaderNodeSeparateRGB')
+            separate_rgba = nodes.new('ShaderNodeSeparateColor')
             separate_rgba.location.x = 4.0 / 5.0 * _x_texture_node
             separate_rgba.location.y = normal_y_value
-            links.new(normal_texture.outputs["Color"], separate_rgba.inputs["Image"])
+            links.new(normal_texture.outputs["Color"], separate_rgba.inputs["Color"])
 
             invert_node = nodes.new("ShaderNodeInvert")
             invert_node.inputs["Fac"].default_value = 1.0
             invert_node.location.x = 3.0 / 5.0 * _x_texture_node
             invert_node.location.y = normal_y_value
 
-            links.new(separate_rgba.outputs["G"], invert_node.inputs["Color"])
+            links.new(separate_rgba.outputs["Green"], invert_node.inputs["Color"])
 
-            combine_rgba = nodes.new('ShaderNodeCombineRGB')
+            combine_rgba = nodes.new('ShaderNodeCombineColor')
             combine_rgba.location.x = 2.0 / 5.0 * _x_texture_node
             combine_rgba.location.y = normal_y_value
-            links.new(separate_rgba.outputs["R"], combine_rgba.inputs["R"])
-            links.new(invert_node.outputs["Color"], combine_rgba.inputs["G"])
-            links.new(separate_rgba.outputs["B"], combine_rgba.inputs["B"])
+            links.new(separate_rgba.outputs["Red"], combine_rgba.inputs["Red"])
+            links.new(invert_node.outputs["Color"], combine_rgba.inputs["Green"])
+            links.new(separate_rgba.outputs["Blue"], combine_rgba.inputs["Blue"])
 
-            current_output = combine_rgba.outputs["Image"]
+            current_output = combine_rgba.outputs["Color"]
         else:
             current_output = normal_texture.outputs["Color"]
 
@@ -320,11 +318,11 @@ def add_bump(nodes: bpy.types.Nodes, links: bpy.types.NodeLinks, bump_image_path
         bump_texture = create_image_node(nodes, bump_image_path, True,
                                          _x_texture_node,
                                          bump_y_value)
-        bump_map = nodes.new("ShaderNodeBumpMap")
+        bump_map = nodes.new("ShaderNodeBump")
         bump_map.inputs["Strength"].default_value = 1.0
         bump_map.location.x = 1.0 / 5.0 * _x_texture_node
         bump_map.location.y = bump_y_value
-        links.new(bump_texture.outputs["Color"], bump_map.inputs["Heights"])
+        links.new(bump_texture.outputs["Color"], bump_map.inputs["Height"])
         links.new(bump_map.outputs["Normal"], principled_bsdf.inputs["Normal"])
         return bump_texture
     return None
@@ -476,7 +474,6 @@ def change_to_texture_less_render(use_alpha_channel):
     :param use_alpha_channel: If true, the alpha channel stored in .png textures is used.
     """
     new_mat = bpy.data.materials.new(name="TextureLess")
-    new_mat.use_nodes = True
     nodes = new_mat.node_tree.nodes
 
     principled_bsdf = Utility.get_the_one_node_with_type(nodes, "BsdfPrincipled")
@@ -549,7 +546,6 @@ def create_material_from_texture(texture: Union[Path, str, bpy.types.Image], mat
 
     if isinstance(texture, bpy.types.Image):
         new_mat = bpy.data.materials.new(material_name)
-        new_mat.use_nodes = True
         bp_mat = Material(new_mat)
         bp_mat.set_principled_shader_value("Base Color", texture)
         return bp_mat

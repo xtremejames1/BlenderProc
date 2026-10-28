@@ -90,7 +90,7 @@ class Link(Entity):
 
         bpy.ops.object.select_all(action='DESELECT')
 
-        bone.bone.select = True
+        bone.select = True
         bone.rotation_mode = 'XYZ'
 
         # in absolute mode we overwrite the rotation values of the armature

@@ -47,8 +47,8 @@ class DefaultConfig:
     gamma = 1.0
 
     # Setup
-    default_pip_packages = ["wheel", "pyyaml==6.0.1", "imageio==2.34.1", "gitpython==3.1.43",
-                            "scikit-image==0.23.2", "pypng==0.20220715.0", "scipy==1.13.1", "matplotlib==3.9.0",
-                            "pytz==2024.1", "h5py==3.11.0", "Pillow==10.3.0", "opencv-contrib-python==4.10.0.82",
-                            "scikit-learn==1.5.0", "python-dateutil==2.9.0.post0", "rich==13.7.1", "trimesh==4.4.0",
+    default_pip_packages = ["wheel", "pyyaml==6.0.2", "imageio==2.37.0", "gitpython==3.1.44",
+                            "scikit-image==0.25.2", "pypng==0.20220715.0", "scipy==1.15.3", "matplotlib==3.10.3",
+                            "pytz==2025.2", "h5py==3.14.0", "Pillow==11.2.1", "opencv-contrib-python==4.11.0.86",
+                            "scikit-learn==1.7.0", "python-dateutil==2.9.0.post0", "rich==14.0.0", "trimesh==4.6.12",
                             "pyrender==0.1.45"]

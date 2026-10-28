@@ -41,9 +41,9 @@ def set_denoiser(denoiser: Optional[str]):
         bpy.context.scene.cycles.denoiser = "OPTIX"
     elif denoiser.upper() == "INTEL":
         # The intel denoiser is activated via the compositor
-        bpy.context.scene.use_nodes = True
-        nodes = bpy.context.scene.node_tree.nodes
-        links = bpy.context.scene.node_tree.links
+        tree = Utility.get_compositor_node_tree()
+        nodes = tree.nodes
+        links = tree.links
 
         # The denoiser gets normal and diffuse color as input
         bpy.context.view_layer.use_pass_normal = True
@@ -54,14 +54,14 @@ def set_denoiser(denoiser: Optional[str]):
 
         # Link nodes
         render_layer_node = Utility.get_the_one_node_with_type(nodes, 'CompositorNodeRLayers')
-        composite_node = Utility.get_the_one_node_with_type(nodes, 'CompositorNodeComposite')
+        group_output_node = Utility.get_the_one_node_with_type(nodes, 'NodeGroupOutput')
         Utility.insert_node_instead_existing_link(links,
                                                   render_layer_node.outputs['Image'],
                                                   denoise_node.inputs['Image'],
                                                   denoise_node.outputs['Image'],
-                                                  composite_node.inputs['Image'])
+                                                  group_output_node.inputs[0])
 
-        links.new(render_layer_node.outputs['DiffCol'], denoise_node.inputs['Albedo'])
+        links.new(render_layer_node.outputs['Diffuse Color'], denoise_node.inputs['Albedo'])
         links.new(render_layer_node.outputs['Normal'], denoise_node.inputs['Normal'])
     else:
         raise Exception("No such denoiser: " + denoiser)
@@ -208,11 +208,9 @@ def enable_distance_output(activate_antialiasing: bool, output_dir: Optional[str
         raise RuntimeError(msg)
     GlobalStorage.add("distance_output_is_enabled", True)
 
-    bpy.context.scene.render.use_compositing = True
-    bpy.context.scene.use_nodes = True
     GlobalStorage.add("renderer_distance_end", antialiasing_distance_max)
 
-    tree = bpy.context.scene.node_tree
+    tree = Utility.get_compositor_node_tree()
     links = tree.links
     # Use existing render layer
     render_layer_node = Utility.get_the_one_node_with_type(tree.nodes, 'CompositorNodeRLayers')
@@ -224,7 +222,8 @@ def enable_distance_output(activate_antialiasing: bool, output_dir: Optional[str
 
     bpy.context.view_layer.use_pass_mist = True  # Enable distance pass
     # Create a mapper node to map from 0-1 to SI units
-    mapper_node = tree.nodes.new("CompositorNodeMapRange")
+    mapper_node = tree.nodes.new("ShaderNodeMapRange")
+    mapper_node.clamp = False
     links.new(render_layer_node.outputs["Mist"], mapper_node.inputs['Value'])
     # map the values 0-1 to range distance_start to distance_range
     mapper_node.inputs['From Max'].default_value = 1.0
@@ -232,20 +231,17 @@ def enable_distance_output(activate_antialiasing: bool, output_dir: Optional[str
     mapper_node.inputs['To Max'].default_value = antialiasing_distance_max
 
     # Build output node
-    output_file = tree.nodes.new("CompositorNodeOutputFile")
-    output_file.base_path = output_dir
-    output_file.format.file_format = "OPEN_EXR"
-    output_file.file_slots.values()[0].path = file_prefix
+    _, output_file_input = Utility.add_compositor_file_output_node(tree, output_dir, file_prefix, "OPEN_EXR")
 
     # Feed the output through 'Combine Color' node, to create 3 channel RGB grayscale image as a lot of
     # EXR readers don't support single float channel EXR files and Blender writes depth as a single
     # channel since version 4.1.1 by default.
     combine_color = tree.nodes.new("CompositorNodeCombineColor")
     combine_color.mode = "HSV"
-    links.new(mapper_node.outputs["Value"], combine_color.inputs[2])
+    links.new(mapper_node.outputs["Result"], combine_color.inputs[2])
     
     # Feed the Z-Buffer or Mist output of the render layer to the input of the file IO layer
-    links.new(combine_color.outputs["Image"], output_file.inputs['Image'])
+    links.new(combine_color.outputs["Image"], output_file_input)
 
     Utility.add_output_entry({
         "key": output_key,
@@ -288,10 +284,7 @@ def enable_depth_output(activate_antialiasing: bool, output_dir: Optional[str] =
         raise RuntimeError(msg)
     GlobalStorage.add("depth_output_is_enabled", True)
 
-    bpy.context.scene.render.use_compositing = True
-    bpy.context.scene.use_nodes = True
-
-    tree = bpy.context.scene.node_tree
+    tree = Utility.get_compositor_node_tree()
     links = tree.links
     # Use existing render layer
     render_layer_node = Utility.get_the_one_node_with_type(tree.nodes, 'CompositorNodeRLayers')
@@ -300,10 +293,7 @@ def enable_depth_output(activate_antialiasing: bool, output_dir: Optional[str] =
     bpy.context.view_layer.use_pass_z = True
 
     # Build output node
-    output_file = tree.nodes.new("CompositorNodeOutputFile")
-    output_file.base_path = output_dir
-    output_file.format.file_format = "OPEN_EXR"
-    output_file.file_slots.values()[0].path = file_prefix
+    _, output_file_input = Utility.add_compositor_file_output_node(tree, output_dir, file_prefix, "OPEN_EXR")
 
     # Feed the output through 'Combine Color' node, to create 3 channel RGB grayscale image as a lot of
     # EXR readers don't support single float channel EXR files and Blender writes depth as a single
@@ -313,7 +303,7 @@ def enable_depth_output(activate_antialiasing: bool, output_dir: Optional[str] =
     links.new(render_layer_node.outputs["Depth"], combine_color.inputs[2])
     
     # Feed the Z-Buffer RGB output from the Combine Color node to the input of the file IO layer
-    links.new(combine_color.outputs["Image"], output_file.inputs["Image"])
+    links.new(combine_color.outputs["Image"], output_file_input)
 
     Utility.add_output_entry({
         "key": output_key,
@@ -339,25 +329,23 @@ def enable_normals_output(output_dir: Optional[str] = None, file_prefix: str = "
         output_dir = Utility.get_temporary_directory()
 
     bpy.context.view_layer.use_pass_normal = True
-    bpy.context.scene.render.use_compositing = True
-    bpy.context.scene.use_nodes = True
-    tree = bpy.context.scene.node_tree
+    tree = Utility.get_compositor_node_tree()
     links = tree.links
 
     # Use existing render layer
     render_layer_node = Utility.get_the_one_node_with_type(tree.nodes, 'CompositorNodeRLayers')
 
-    separate_rgba = tree.nodes.new("CompositorNodeSepRGBA")
+    separate_rgba = tree.nodes.new("CompositorNodeSeparateColor")
     space_between_nodes_x = 200
     space_between_nodes_y = -300
     separate_rgba.location.x = space_between_nodes_x
     separate_rgba.location.y = space_between_nodes_y
     links.new(render_layer_node.outputs["Normal"], separate_rgba.inputs["Image"])
 
-    combine_rgba = tree.nodes.new("CompositorNodeCombRGBA")
+    combine_rgba = tree.nodes.new("CompositorNodeCombineColor")
     combine_rgba.location.x = space_between_nodes_x * 14
 
-    c_channels = ["R", "G", "B"]
+    c_channels = ["Red", "Green", "Blue"]
     offset = space_between_nodes_x * 2
     multiplication_values: List[List[bpy.types.Node]] = [[], [], []]
     channel_results = {}
@@ -365,7 +353,7 @@ def enable_normals_output(output_dir: Optional[str] = None, file_prefix: str = "
         # matrix multiplication
         mulitpliers = []
         for column in range(3):
-            multiply = tree.nodes.new("CompositorNodeMath")
+            multiply = tree.nodes.new("ShaderNodeMath")
             multiply.operation = "MULTIPLY"
             multiply.inputs[1].default_value = 0  # setting at the end for all frames
             multiply.location.x = column * space_between_nodes_x + offset
@@ -374,14 +362,14 @@ def enable_normals_output(output_dir: Optional[str] = None, file_prefix: str = "
             mulitpliers.append(multiply)
             multiplication_values[row_index].append(multiply)
 
-        first_add = tree.nodes.new("CompositorNodeMath")
+        first_add = tree.nodes.new("ShaderNodeMath")
         first_add.operation = "ADD"
         first_add.location.x = space_between_nodes_x * 5 + offset
         first_add.location.y = row_index * space_between_nodes_y
         links.new(mulitpliers[0].outputs["Value"], first_add.inputs[0])
         links.new(mulitpliers[1].outputs["Value"], first_add.inputs[1])
 
-        second_add = tree.nodes.new("CompositorNodeMath")
+        second_add = tree.nodes.new("ShaderNodeMath")
         second_add.operation = "ADD"
         second_add.location.x = space_between_nodes_x * 6 + offset
         second_add.location.y = row_index * space_between_nodes_y
@@ -401,34 +389,32 @@ def enable_normals_output(output_dir: Optional[str] = None, file_prefix: str = "
                 current_multiply.inputs[1].keyframe_insert(data_path='default_value', frame=frame)
     offset = 8 * space_between_nodes_x
     for index, channel in enumerate(c_channels):
-        multiply = tree.nodes.new("CompositorNodeMath")
+        multiply = tree.nodes.new("ShaderNodeMath")
         multiply.operation = "MULTIPLY"
         multiply.location.x = space_between_nodes_x * 2 + offset
         multiply.location.y = index * space_between_nodes_y
         links.new(channel_results[channel].outputs["Value"], multiply.inputs[0])
-        if channel == "G":
+        if channel == "Green":
             multiply.inputs[1].default_value = -0.5
         else:
             multiply.inputs[1].default_value = 0.5
-        add = tree.nodes.new("CompositorNodeMath")
+        add = tree.nodes.new("ShaderNodeMath")
         add.operation = "ADD"
         add.location.x = space_between_nodes_x * 3 + offset
         add.location.y = index * space_between_nodes_y
         links.new(multiply.outputs["Value"], add.inputs[0])
         add.inputs[1].default_value = 0.5
         output_channel = channel
-        if channel == "G":
-            output_channel = "B"
-        elif channel == "B":
-            output_channel = "G"
+        if channel == "Green":
+            output_channel = "Blue"
+        elif channel == "Blue":
+            output_channel = "Green"
         links.new(add.outputs["Value"], combine_rgba.inputs[output_channel])
 
-    output_file = tree.nodes.new("CompositorNodeOutputFile")
-    output_file.base_path = output_dir
-    output_file.format.file_format = "OPEN_EXR"
-    output_file.file_slots.values()[0].path = file_prefix
+    output_file, output_file_input = Utility.add_compositor_file_output_node(tree, output_dir, file_prefix,
+                                                                             "OPEN_EXR")
     output_file.location.x = space_between_nodes_x * 15
-    links.new(combine_rgba.outputs["Image"], output_file.inputs["Image"])
+    links.new(combine_rgba.outputs["Image"], output_file_input)
 
     Utility.add_output_entry({
         "key": output_key,
@@ -469,11 +455,9 @@ def enable_segmentation_output(map_by: Union[str, List[str]] = "category_id",
         obj.pass_index = index + 1
 
     # add the pass object index id to the rendering output
-    bpy.context.scene.render.use_compositing = True
-    bpy.context.scene.use_nodes = True
     bpy.context.scene.view_layers["ViewLayer"].use_pass_object_index = True
 
-    tree = bpy.context.scene.node_tree
+    tree = Utility.get_compositor_node_tree()
     links = tree.links
 
     render_layer_node = tree.nodes.get('Render Layers')
@@ -481,10 +465,7 @@ def enable_segmentation_output(map_by: Union[str, List[str]] = "category_id",
     if output_dir is None:
         output_dir = Utility.get_temporary_directory()
 
-    output_node = tree.nodes.new('CompositorNodeOutputFile')
-    output_node.base_path = output_dir
-    output_node.format.file_format = "OPEN_EXR"
-    output_node.file_slots.values()[0].path = file_prefix
+    _, output_node_input = Utility.add_compositor_file_output_node(tree, output_dir, file_prefix, "OPEN_EXR")
     Utility.add_output_entry({
         "key": output_key,
         "path": os.path.join(output_dir, file_prefix) + "%04d" + ".exr",
@@ -500,9 +481,9 @@ def enable_segmentation_output(map_by: Union[str, List[str]] = "category_id",
     # channel since version 4.1.1 by default
     combine_color = tree.nodes.new("CompositorNodeCombineColor")
     combine_color.mode = "HSV"
-    links.new(render_layer_node.outputs["IndexOB"], combine_color.inputs[2])
+    links.new(render_layer_node.outputs["Object Index"], combine_color.inputs[2])
     
-    links.new(combine_color.outputs["Image"], output_node.inputs["Image"])
+    links.new(combine_color.outputs["Image"], output_node_input)
 
     # set the threshold low to avoid noise in alpha materials
     bpy.context.scene.view_layers["ViewLayer"].pass_alpha_threshold = pass_alpha_threshold
@@ -521,20 +502,15 @@ def enable_diffuse_color_output(output_dir: Optional[str] = None, file_prefix: s
     if output_dir is None:
         output_dir = Utility.get_temporary_directory()
 
-    bpy.context.scene.render.use_compositing = True
-    bpy.context.scene.use_nodes = True
-    tree = bpy.context.scene.node_tree
+    tree = Utility.get_compositor_node_tree()
     links = tree.links
 
     bpy.context.view_layer.use_pass_diffuse_color = True
     render_layer_node = Utility.get_the_one_node_with_type(tree.nodes, 'CompositorNodeRLayers')
-    final_output = render_layer_node.outputs["DiffCol"]
+    final_output = render_layer_node.outputs["Diffuse Color"]
 
-    output_file = tree.nodes.new('CompositorNodeOutputFile')
-    output_file.base_path = output_dir
-    output_file.format.file_format = "PNG"
-    output_file.file_slots.values()[0].path = file_prefix
-    links.new(final_output, output_file.inputs['Image'])
+    _, output_file_input = Utility.add_compositor_file_output_node(tree, output_dir, file_prefix, "PNG")
+    links.new(final_output, output_file_input)
 
     Utility.add_output_entry({
         "key": output_key,
@@ -745,14 +721,15 @@ def set_output_format(file_format: Optional[str] = None, color_depth: Optional[i
     :param exposure: Exposure (stops) applied before display transform.
     :param gamma: Amount of gamma modification applied after display transform.
     """
+    # Set the file format first, as it determines which color modes and depths are available
+    if file_format is not None:
+        bpy.context.scene.render.image_settings.file_format = file_format
     if enable_transparency is not None:
         # In case a previous renderer changed these settings
         # Store as RGB by default unless the user specifies store_alpha as true in yaml
         bpy.context.scene.render.image_settings.color_mode = "RGBA" if enable_transparency else "RGB"
         # set the background as transparent if transparent_background is true in yaml
         bpy.context.scene.render.film_transparent = enable_transparency
-    if file_format is not None:
-        bpy.context.scene.render.image_settings.file_format = file_format
     if color_depth is not None:
         bpy.context.scene.render.image_settings.color_depth = str(color_depth)
     if jpg_quality is not None:
@@ -808,9 +785,9 @@ def disable_all_denoiser():
     bpy.context.scene.cycles.use_denoising = False
 
     # Disable intel denoiser
-    if bpy.context.scene.use_nodes:
-        nodes = bpy.context.scene.node_tree.nodes
-        links = bpy.context.scene.node_tree.links
+    if bpy.context.scene.compositing_node_group is not None:
+        nodes = bpy.context.scene.compositing_node_group.nodes
+        links = bpy.context.scene.compositing_node_group.links
 
         # Go through all existing denoiser nodes
         for denoiser_node in Utility.get_nodes_with_type(nodes, 'CompositorNodeDenoise'):
@@ -836,7 +813,6 @@ def set_world_background(color: List[float], strength: float = 1):
     :param strength: The strength of the emitted background light.
     """
     world = bpy.context.scene.world
-    world.use_nodes = True
     nodes = world.node_tree.nodes
     links = world.node_tree.links
 
@@ -849,8 +825,13 @@ def set_world_background(color: List[float], strength: float = 1):
 
 
 def enable_experimental_features():
-    """ Enables experimental cycles features. """
-    bpy.context.scene.cycles.feature_set = 'EXPERIMENTAL'
+    """ Enables experimental cycles features.
+
+    Since Blender 5.0, cycles has no separate experimental feature set anymore (e.g. adaptive subdivision is
+    always available), so this function has no effect there.
+    """
+    if hasattr(bpy.context.scene.cycles, "feature_set"):
+        bpy.context.scene.cycles.feature_set = 'EXPERIMENTAL'
 
 
 def set_render_devices(use_only_cpu: bool = False, desired_gpu_device_type: Union[str, List[str]] = None,

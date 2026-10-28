@@ -133,19 +133,20 @@ def cli():
         # variable is set, we expect the bpy module and all relevant dependencies to be provided from the outside.
         # If not set, the script will install blender, setup the environment and run the script inside Blender. 
 
-        # Any run commands are not supported in this mode and have to be executed directly via python.
+        # In this mode, scripts are executed directly with the current python interpreter, e.g. the one of a venv.
         if is_using_external_bpy_module():
-            if args.mode == "run":
-                print("USE_EXTERNAL_BPY_MODULE is set, run the script directly through python:\n\n"
-                    f"python {args.file}")
-            elif args.mode == "debug":
-                print("USE_EXTERNAL_BPY_MODULE is set, debug mode is not supported.")
-            elif args.mode == "quickstart":
-                path_src_run = os.path.join(repo_root_directory, "blenderproc", "scripts", "quickstart.py")
-                print(f"USE_EXTERNAL_BPY_MODULE is set, quickstart is not supported, instead run:\n\n"
-                      f"python {os.path.join(path_src_run)}")
-            
-            sys.exit(1)
+            if args.mode == "debug":
+                print("BlenderProc is using an external bpy module, debug mode is not supported. Set "
+                      "USE_EXTERNAL_BPY_MODULE=0 to use BlenderProc's own Blender installation instead.")
+                sys.exit(1)
+            if args.mode == "quickstart":
+                script_path = os.path.join(repo_root_directory, "blenderproc", "scripts", "quickstart.py")
+            else:
+                script_path = args.file
+            if args.temp_dir is not None:
+                print("Warning: --temp-dir is ignored when using an external bpy module, set the temp_dir "
+                      "parameter of bproc.init() instead.")
+            sys.exit(subprocess.call([sys.executable, script_path] + unknown_args))
 
         # Setup script path that should be executed
         if args.mode == "quickstart":

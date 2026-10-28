@@ -87,13 +87,13 @@ def load_obj(filepath: str, cached_objects: Optional[Dict[str, List[MeshObject]]
         for obj in selected_objects:
             obj.data.materials.append(material.blender_obj)
     elif filepath.endswith('.dae'):
-        bpy.ops.wm.collada_import(filepath=filepath)
+        raise RuntimeError(f"Could not load {filepath}: Blender removed the Collada (.dae) importer in version 5.0. "
+                           f"Please convert the file to another format, e.g. .glb, .fbx or .obj.")
     elif filepath.lower().endswith('.stl'):
         # load a .stl file
         bpy.ops.wm.stl_import(filepath=filepath, **kwargs)
         # add a default material to stl file
         mat = bpy.data.materials.new(name="stl_material")
-        mat.use_nodes = True
         selected_objects = [obj for obj in bpy.context.selected_objects if
                                 obj not in previously_selected_objects]
         for obj in selected_objects:

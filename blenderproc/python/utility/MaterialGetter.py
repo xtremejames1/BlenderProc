@@ -77,7 +77,7 @@ class MaterialGetter:
                         raise Exception(f"Types are not matching: {type(material[key])} and {type(value)} !")
                 elif requested_custom_function:
                     if key.startswith("texture_amount_"):
-                        if material.use_nodes:
+                        if material.node_tree is not None:
                             value = int(value)
                             nodes = material.node_tree.nodes
                             texture_nodes = Utility.get_nodes_with_type(nodes, "TexImage")
@@ -100,7 +100,7 @@ class MaterialGetter:
                             select_material = False
                             break
                     elif key.startswith("principled_bsdf_amount_"):
-                        if material.use_nodes:
+                        if material.node_tree is not None:
                             value = int(value)
                             nodes = material.node_tree.nodes
                             principled = Utility.get_nodes_with_type(nodes, "BsdfPrincipled")
@@ -126,7 +126,7 @@ class MaterialGetter:
                         # This custom function can check the value of a certain Principled BSDF shader input.
                         # For example this can be used to avoid using materials, which have an Alpha Texture by
                         # adding they key: `"cf_principled_bsdf_Alpha_eq": 1.0`
-                        if material.use_nodes:
+                        if material.node_tree is not None:
                             value = float(value)
                             # first check if there is only one Principled BSDF node in the material
                             nodes = material.node_tree.nodes

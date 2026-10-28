@@ -221,6 +221,66 @@ class Utility:
         raise RuntimeError(f"There is not only one node of this type: {node_type}, there are: {len(node)}")
 
     @staticmethod
+    def get_compositor_node_tree() -> bpy.types.NodeTree:
+        """ Returns the compositor node tree of the current scene and creates it, if it does not exist yet.
+
+        Since Blender 5.0 the compositor is a regular node group assigned to `scene.compositing_node_group`.
+        The returned tree always contains a render layers node, whose image output is linked to the group output.
+        This mirrors the default compositor setup that older Blender versions created via `scene.use_nodes = True`.
+
+        :return: The compositor node tree.
+        """
+        scene = bpy.context.scene
+        scene.render.use_compositing = True
+        tree = scene.compositing_node_group
+        if tree is None:
+            tree = bpy.data.node_groups.new("Compositing Node Tree", "CompositorNodeTree")
+            scene.compositing_node_group = tree
+
+        # The group output of the compositor tree defines the final rendered image
+        if not any(item.item_type == "SOCKET" and item.in_out == "OUTPUT" for item in tree.interface.items_tree):
+            tree.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+
+        render_layer_nodes = Utility.get_nodes_with_type(tree.nodes, "CompositorNodeRLayers")
+        render_layer_node = render_layer_nodes[0] if render_layer_nodes else tree.nodes.new("CompositorNodeRLayers")
+        group_output_nodes = Utility.get_nodes_with_type(tree.nodes, "NodeGroupOutput")
+        if group_output_nodes:
+            group_output_node = group_output_nodes[0]
+        else:
+            group_output_node = tree.nodes.new("NodeGroupOutput")
+            group_output_node.location.x = 400
+        if not group_output_node.inputs[0].is_linked:
+            tree.links.new(render_layer_node.outputs["Image"], group_output_node.inputs[0])
+        return tree
+
+    @staticmethod
+    def add_compositor_file_output_node(tree: bpy.types.NodeTree, output_dir: str, file_prefix: str,
+                                        file_format: str) -> Tuple[bpy.types.Node, bpy.types.NodeSocket]:
+        """ Adds a file output node with a single color input to the given compositor tree.
+
+        The written files are named `<output_dir>/<file_prefix><frame:04d>.<ext>`.
+
+        :param tree: The compositor node tree.
+        :param output_dir: The directory to write the files to.
+        :param file_prefix: The prefix of the written files.
+        :param file_format: The blender file format to use, e.g. "OPEN_EXR" or "PNG".
+        :return: The new file output node and its input socket.
+        """
+        output_node = tree.nodes.new("CompositorNodeOutputFile")
+        output_node.directory = output_dir
+        # Blender names the files <file_name><item name><frame>, so we only use the item name for the prefix
+        output_node.file_name = ""
+        output_node.format.media_type = "IMAGE"
+        output_node.format.file_format = file_format
+        if file_format == "OPEN_EXR":
+            # Blender defaults to half floats, which are not precise enough for e.g. depth or flow
+            output_node.format.color_depth = "32"
+        elif file_format == "PNG":
+            output_node.format.color_depth = "8"
+        output_node.file_output_items.new("RGBA", file_prefix)
+        return output_node, output_node.inputs[0]
+
+    @staticmethod
     def get_nodes_created_in_func(nodes: List[bpy.types.Node], created_in_func: str) -> List[bpy.types.Node]:
         """ Returns all nodes which are created in the given function
 
