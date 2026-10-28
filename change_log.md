@@ -16,6 +16,10 @@
   - loading `.dae` (Collada) files is not supported anymore, as blender 5.0 removed the Collada importer
   - `bproc.renderer.enable_experimental_features()` has no effect anymore, as cycles has no experimental feature set in blender 5
 - updates default pip package-versions to versions supporting python 3.13
+- adds the `bpy` extra: `pip install "blenderproc[bpy]"` installs Blender as python module with all dependencies, so BlenderProc works inside of a python 3.13 virtual environment
+  - the `bpy` module is now used automatically if it is installed (set `USE_EXTERNAL_BPY_MODULE=0` to use BlenderProc's own Blender installation instead)
+  - `blenderproc run` and `blenderproc quickstart` execute the script with the current python interpreter in this mode
+  - fixes imports failing for packages installed into the same `site-packages` folder as blenderproc
 
 ## Version 2.8.0 22th October 2024
 

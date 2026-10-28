@@ -7,6 +7,7 @@ from sys import platform
 import shutil
 import subprocess
 import importlib
+import importlib.util
 from io import BytesIO
 import zipfile
 import uuid
@@ -26,9 +27,20 @@ def is_using_external_bpy_module() -> bool:
     script had to fail before.
     
     If using BlenderProc's Blender installation, setup goes through the InstallUtility and
-    SetupUtility.  
+    SetupUtility.
+
+    If USE_EXTERNAL_BPY_MODULE is not set, the external bpy module is used automatically when it is installed
+    in the current python environment, e.g. via `pip install blenderproc[bpy]` in a virtual environment.
+    Set USE_EXTERNAL_BPY_MODULE=0 to always use BlenderProc's own Blender installation instead.
     """
-    return os.environ.get("USE_EXTERNAL_BPY_MODULE", "0") == "1"
+    use_external = os.environ.get("USE_EXTERNAL_BPY_MODULE")
+    if use_external is None:
+        # Inside of BlenderProc's Blender installation, bpy is always available, so only check outside of it
+        use_external = "1" if "INSIDE_OF_THE_INTERNAL_BLENDER_PYTHON_ENVIRONMENT" not in os.environ \
+                              and importlib.util.find_spec("bpy") is not None else "0"
+        # Remember the decision, so it stays the same for this process and all its subprocesses
+        os.environ["USE_EXTERNAL_BPY_MODULE"] = use_external
+    return use_external == "1"
 
 
 class SetupUtility:
@@ -177,9 +189,12 @@ class SetupUtility:
             raise ValueError("The reinstall package mode is not supported right now!")
 
         if is_using_external_bpy_module():
-            print(
-                f"USE_EXTERNAL_BPY_MODULE is set, install packages in your environment directly. Run: \n\n"
-                f"pip install --upgrade {' '.join(required_packages)}")
+            # The default packages are installed together with blenderproc via "pip install blenderproc[bpy]",
+            # so only point out the additionally requested ones.
+            if user_required_packages:
+                print(
+                    f"BlenderProc is using an external bpy module, install packages in your environment directly. "
+                    f"Run: \n\npip install {' '.join(user_required_packages)}")
             return
         
         result = SetupUtility.determine_python_paths(blender_path, major_version)

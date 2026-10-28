@@ -48,6 +48,20 @@ cd BlenderProc
 pip install -e .
 ```
 
+### In a virtual environment (Blender as python module)
+
+BlenderProc can also use Blender as a python module (`bpy`) from pip, so no separate Blender installation is downloaded.
+This requires Python 3.13, the Python version of Blender 5.2:
+
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+pip install "blenderproc[bpy]"      # or, inside of a clone of this repository: pip install ".[bpy]"
+```
+
+Inside this environment, scripts can be run directly via `python <your_python_script>` or via `blenderproc run <your_python_script>`.
+Read more about this mode [here](docs/tutorials/bpy_module.md).
+
 ## Usage
 
 BlenderProc has to be run inside the blender python environment, as only there we can access the blender API. 
