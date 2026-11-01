@@ -16,7 +16,8 @@ def load_obj(filepath: str, cached_objects: Optional[Dict[str, List[MeshObject]]
     """ Import all objects for the given file and returns the loaded objects
 
     In .obj files a list of objects can be saved in.
-    In .ply files only one object can be saved so the list has always at most one element
+    In .ply files only one object can be saved so the list has always at most one element.
+    For .blend files, all mesh objects loaded via `bproc.loader.load_blend()` are returned.
 
     :param filepath: the filepath to the location where the data is stored
     :param cached_objects: a dict of filepath to objects, which have been loaded before, to avoid reloading
@@ -39,13 +40,13 @@ def load_obj(filepath: str, cached_objects: Optional[Dict[str, List[MeshObject]]
         return loaded_objects
     # save all selected objects
     previously_selected_objects = bpy.context.selected_objects
-    if filepath.endswith(".obj"):
+    if filepath.lower().endswith(".obj"):
         # Set validate_meshes to False per default to be backwards compatible
         if "validate_meshes" not in kwargs:
             kwargs["validate_meshes"] = False
         # load an .obj file:
         bpy.ops.wm.obj_import(filepath=filepath, **kwargs)
-    elif filepath.endswith(".ply"):
+    elif filepath.lower().endswith(".ply"):
         PLY_TEXTURE_FILE_COMMENT = "comment TextureFile "
         model_name = os.path.basename(filepath)
 
@@ -86,7 +87,7 @@ def load_obj(filepath: str, cached_objects: Optional[Dict[str, List[MeshObject]]
         selected_objects = [obj for obj in bpy.context.selected_objects if obj not in previously_selected_objects]
         for obj in selected_objects:
             obj.data.materials.append(material.blender_obj)
-    elif filepath.endswith('.dae'):
+    elif filepath.lower().endswith(".dae"):
         raise RuntimeError(f"Could not load {filepath}: Blender removed the Collada (.dae) importer in version 5.0. "
                            f"Please convert the file to another format, e.g. .glb, .fbx or .obj.")
     elif filepath.lower().endswith('.stl'):
@@ -104,6 +105,18 @@ def load_obj(filepath: str, cached_objects: Optional[Dict[str, List[MeshObject]]
         bpy.ops.import_scene.gltf(filepath=filepath)
     elif filepath.lower().endswith('.usda') or filepath.lower().endswith('.usd') or filepath.lower().endswith('.usdc'):
         bpy.ops.wm.usd_import(filepath=filepath)
+    elif filepath.lower().endswith('.blend'):
+        # .blend files are loaded via load_blend, kwargs like obj_types or name_regrex are passed on to it
+        # pylint: disable=import-outside-toplevel
+        from blenderproc.python.loader.BlendLoader import load_blend
+        # pylint: enable=import-outside-toplevel
+        mesh_objects = [obj for obj in load_blend(filepath, **kwargs) if isinstance(obj, MeshObject)]
+        for obj in mesh_objects:
+            obj.set_cp("model_path", filepath)
+        return mesh_objects
+    else:
+        raise ValueError(f"Could not load {filepath}: The file type is not supported. Supported are .obj, .ply, "
+                         f".stl, .fbx, .glb, .gltf, .usd, .usda, .usdc and .blend files.")
 
     mesh_objects = convert_to_meshes([obj for obj in bpy.context.selected_objects
                                   if obj not in previously_selected_objects])
