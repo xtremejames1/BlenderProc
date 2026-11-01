@@ -7,7 +7,7 @@
 
 # Version History
 
-## Unreleased
+## Version 2.9.0 1st November 2026
 
 - upgrades to blender 5.2.3 LTS, which bundles python 3.13
   - the compositor setup now uses `scene.compositing_node_group` (see `Utility.get_compositor_node_tree()`), as `scene.node_tree` was removed in blender 5.0
@@ -20,6 +20,8 @@
   - the `bpy` module is now used automatically if it is installed (set `USE_EXTERNAL_BPY_MODULE=0` to use BlenderProc's own Blender installation instead)
   - `blenderproc run` and `blenderproc quickstart` execute the script with the current python interpreter in this mode
   - fixes imports failing for packages installed into the same `site-packages` folder as blenderproc
+- `bproc.loader.load_obj()` now loads `.blend` files (returning their mesh objects via `bproc.loader.load_blend()`) and raises an error for unsupported file types instead of silently returning an empty list
+- `bproc.object.compute_poi()` raises a clear error when called without objects
 
 ## Version 2.8.0 22th October 2024
 
