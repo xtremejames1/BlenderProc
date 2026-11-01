@@ -779,6 +779,10 @@ def compute_poi(objects: List[MeshObject]) -> np.ndarray:
     :param objects: The list of mesh objects that should be considered.
     :return: Point of interest in the scene.
     """
+    if len(objects) == 0:
+        raise ValueError("compute_poi() was called without any objects. Make sure the mesh objects were loaded into "
+                         "the scene, e.g. via bproc.loader.load_blend(), and that the scene was not cleaned "
+                         "afterwards, e.g. by calling bproc.init() or bproc.clean_up() after loading.")
     # Init matrix for all points of all bounding boxes
     mean_bb_points = []
 
